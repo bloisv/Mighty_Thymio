@@ -5,6 +5,7 @@ from geometry_msgs.msg import Twist, Pose
 from geometry_msgs.msg import Point
 from nav_msgs.msg import Odometry
 import movement_utils as mv
+from math import pi
 
 
 
@@ -25,11 +26,7 @@ class Thymio_Follow_8_Controller:
 		explicit_quat = [quaternion.x, quaternion.y, quaternion.z, quaternion.w]
 		_,_,self.orientation = euler_from_quaternion(explicit_quat)
 		self.orientation = mv.to_positive_angle(self.orientation)
-
-
-
-	def circular_motion(self):
-		rospy.loginfo(mv.euclidean_distance(Point(),Point()))
+		
 
 	def run(self):
 		velocity = Twist()
@@ -40,11 +37,42 @@ class Thymio_Follow_8_Controller:
 
 		velocity.angular.z = 0.2
 		velocity.linear.x = 0
+
+
+		speed = 0.33
+		radius = 0.5
+		positive_orientation = True
+		started_8 = False
+		finishing_8 = False
+		half_8 = False
+		espilon = 0.1
+
 		while not rospy.is_shutdown():
+			
+
+			if abs(self.orientation - pi/2) < espilon:
+				started_8 = True
+			if started_8 and not finishing_8 and abs(self.orientation) < espilon:
+				positive_orientation = False
+				half_8 = True
+
+			if half_8 and abs(self.orientation - 3.*pi/2.) < espilon:
+				finishing_8 = True
+
+				
+			if  finishing_8 and abs(self.orientation) < espilon:
+				positive_orientation = True
+				started_8 = False
+				finishing_8 = False
+
+			# Debug
+			# print("Started: {0}, Half: {1}, Finished: {2}\n".format(started_8, half_8, finishing_8))
+
+			velocity = mv.circular_motion(speed=speed,
+			 radius=radius,
+			 positive_orientation=positive_orientation)
+			
 			self.velocity_publisher.publish(velocity)
-			#self.circular_motion()
-			rospy.loginfo(self.orientation)
-			rospy.loginfo(mv.min_angle_diff(self.orientation, 1.))
 			self.rate.sleep()
 
 if __name__ == '__main__':

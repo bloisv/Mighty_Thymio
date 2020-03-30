@@ -22,3 +22,18 @@ def min_angle_diff(angle, target_angle):
 
 def to_positive_angle(angle):
 	return (angle+2*pi)%(2*pi) 
+
+def circular_motion(speed, radius, positive_orientation=True):
+	velocity = Twist()
+	velocity.linear.y = 0
+	velocity.linear.z = 0
+	velocity.angular.x = 0
+	velocity.angular.y = 0
+
+	velocity.linear.x = speed
+	velocity.angular.z = speed/radius
+	if not positive_orientation:
+		velocity.angular.z = - velocity.angular.z
+
+	return velocity
+		
