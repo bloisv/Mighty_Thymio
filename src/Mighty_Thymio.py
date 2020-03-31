@@ -30,14 +30,18 @@ class Mighty_Thymio:
 		 prx+'center_left', 
 		 prx+'center', 
 		 prx+'center_right',
-		 prx+'right'
+		 prx+'right',
+		 prx+'rear_left',
+		 prx+'rear_right'
 		]
 
 		callback = [self.update_proximity_left,
 		self.update_proximity_center_left,
 		self.update_proximity_center,
 		self.update_proximity_center_right,
-		self.update_proximity_right
+		self.update_proximity_right,
+		self.update_proximity_rear_left,
+		self.update_proximity_rear_right
 		]
 
 		self.proximity_subscribers = [
@@ -47,11 +51,13 @@ class Mighty_Thymio:
 
 		self.position = Point()
 		self.orientation = 0
-		self.proximity = [0.12] * 5
+		self.proximity = [0.12] * 7
+		self.covariance = None
 
 
 	def update_pose(self, data):
 		self.position = data.pose.pose.position
+		self.covariance = data.pose.covariance
 		quaternion = data.pose.pose.orientation
 		explicit_quat = [quaternion.x, quaternion.y, quaternion.z, quaternion.w]
 		_,_,self.orientation = euler_from_quaternion(explicit_quat)
@@ -71,6 +77,12 @@ class Mighty_Thymio:
 
 	def update_proximity_right(self, data):
 		self.proximity[4] = data.range
+
+	def update_proximity_rear_left(self, data):
+		self.proximity[5] = data.range
+
+	def update_proximity_rear_right(self, data):
+		self.proximity[6] = data.range
 		
 
 	def run(self):
@@ -85,6 +97,7 @@ class Mighty_Thymio:
 			if self.mode == 'FOLLOW8':
 				vel = self.controller.run(self.orientation) 
 			else:
+				# print(self.covariance)
 				vel = self.controller.run(self.proximity, self.position, self.orientation)
 			
 			self.velocity_publisher.publish(vel)
