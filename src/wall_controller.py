@@ -13,19 +13,22 @@ class WallController:
 		self.proximity_max_range = 0.12
 		self.WALL_REACHED = False
 		self.DONE = False
+		self.ROTATING = False
+		self.target_orientation = 0.
 
 	def run(self, proximity, position, orientation):
 		velocity = Twist()
+		velocity.linear.x = 0
 		velocity.linear.y = 0
 		velocity.linear.z = 0
 		velocity.angular.x = 0
 		velocity.angular.y = 0
 		velocity.angular.z = 0.
 
+		print("Orientation: {0}\n".format(orientation))
+		#rospy.loginfo(proximity[2])
 
-		rospy.loginfo(proximity[2])
-
-		
+	
 		if proximity[2] > 0.11:
 			velocity.linear.x = .15
 		elif proximity[2] > 0.8:
@@ -34,12 +37,15 @@ class WallController:
 			velocity.linear.x = 0.
 			self.WALL_REACHED = True
 
+		if self.WALL_REACHED and not self.ROTATING:
+			self.ROTATING=True
+			self.target_orientation = (orientation+pi)%(2*pi)
 
-		# Turn 180 degrees ---- buggy
+
 		if not self.DONE and self.WALL_REACHED:
-			target_orientation = (orientation+pi)%(2*pi)
+			
 			done , velocity = self.motion_controller.move(position,orientation,
-				position,target_orientation=target_orientation
+				position,target_orientation=pi
 			)
 			if done:
 				self.DONE = True
