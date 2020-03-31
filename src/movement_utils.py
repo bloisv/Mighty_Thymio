@@ -4,9 +4,9 @@ from geometry_msgs.msg import Point
 
 from math import pow, atan2, sqrt, pi
 
-def euclidean_distance(source, target):
-		return sqrt(pow((target.x - source.x), 2) +
-					pow((source.y - target.y), 2))
+def euclidean_distance(position, target):
+		return sqrt(pow((target.x - position.x), 2) +
+					pow((position.y - target.y), 2))
 
 def min_angle_diff(angle, target_angle):
 	delta = target_angle - angle
@@ -23,6 +23,10 @@ def min_angle_diff(angle, target_angle):
 def to_positive_angle(angle):
 	return (angle+2*pi)%(2*pi) 
 
+def steering_angle(position, target):
+	alpha =  to_positive_angle(atan2(target.y - position.y,target.x - position.x))
+	return min_angle_diff(0, alpha)
+
 def circular_motion(speed, radius, positive_orientation=True):
 	velocity = Twist()
 	velocity.linear.y = 0
@@ -36,4 +40,29 @@ def circular_motion(speed, radius, positive_orientation=True):
 		velocity.angular.z = - velocity.angular.z
 
 	return velocity
+
+class ToTargetPController:
+	def __init__(self, linear_speed, orientation_speed):
+		self.gain1 = linear_speed
+		self.gain2 = orientation_speed
+
+	def move(self,position, orientation, target, target_orientation=None, threshold=0.01):
+		velocity = Twist()
+		moving_to_target = False
+
+		if euclidean_distance(position, target) >= threshold:
+			velocity.linear.x = self.gain1 * euclidean_distance(position, target) 
+			moving_to_target = True
+
+		if abs(steering_angle(position,target)) >= threshold:
+			velocity.angular.z = 3*self.gain1 * steering_angle(position,target)
+			moving_to_target = True
+
+		if target_orientation is not None and abs(min_angle_diff(orientation,target_orientation)) >= threshold:
+			velocity.linear.x = 0.
+			velocity.angular.z = self.gain2 * min_angle_diff(orientation,target_orientation)
+			moving_to_target = True
+
+		return moving_to_target, velocity
+
 		
