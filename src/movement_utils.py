@@ -42,27 +42,36 @@ def circular_motion(speed, radius, positive_orientation=True):
 	return velocity
 
 class ToTargetPController:
-	def __init__(self, linear_speed, orientation_speed, linear_threshold=0.01, orientation_eps=0.002):
+	def __init__(self, linear_speed, orientation_speed, linear_threshold=0.02, orientation_eps=0.005):
 		self.gain1 = linear_speed
 		self.gain2 = orientation_speed
 		self.linear_eps = linear_threshold
 		self.orientation_eps = orientation_eps
 
-	def move(self,position, orientation, target, target_orientation=None):
+	def move(self,position, orientation, target, target_orientation=None,
+	 max_orientation_speed=None, max_linear_speed=None):
 		velocity = Twist()
 		done = True
 
 		if euclidean_distance(position, target) >= self.linear_eps:
 			velocity.linear.x = self.gain1 * euclidean_distance(position, target) 
+			if max_linear_speed is not None:
+				velocity.linear.x = min(velocity.linear.x, max_linear_speed)
 			done = False
 
+		"""
 		if abs(steering_angle(position,target)) >= self.linear_eps:
 			velocity.angular.z = 3*self.gain1 * steering_angle(position,target)
 			done = False
+		"""
 		
 		if target_orientation is not None and abs(min_angle_diff(orientation,target_orientation)) >= self.orientation_eps:
 			velocity.linear.x = 0.
 			velocity.angular.z = self.gain2 * min_angle_diff(orientation,target_orientation)
+			if max_orientation_speed is not None:
+				module = min(abs(velocity.angular.z), max_orientation_speed)
+				velocity.angular.z *= module / abs(velocity.angular.z)
+
 			done = False
 
 		return done, velocity
