@@ -6,7 +6,7 @@ from math import pi, cos, sin
 
 
 class WallController:
-	def __init__(self, proximity_threshold=0.05, wall_safety_distance=2., debug=False):
+	def __init__(self, proximity_threshold=0.035, wall_safety_distance=2., debug=False):
 		self.proximity_min_range = 0.010
 		self.proximity_max_range = 0.12
 		# Distance between the rear proximity sensors and the reference of the robot
@@ -34,24 +34,25 @@ class WallController:
 		# Move ahead until the proximity sensors detect an obstacle,
 		# then get closer than proximity threshold meters
 
-		if proximity[2] > 0.11:
+		if proximity[1] > 0.11 and proximity[2] > 0.11 and proximity[3] > 0.11:
 			self.velocity.linear.x = .15
-		elif proximity[2] > self.proximity_threshold:
+		elif proximity[1] > self.proximity_threshold and proximity[2] > self.proximity_threshold and proximity[3] > self.proximity_threshold:
 			self.velocity.linear.x = 0.033
 		else:
 			self.velocity.linear.x = 0.
 			self.WALL_REACHED = True
-			print("Wall reached. Turning in place...")
+
+			self.flat_surface = True
+			for i in range(1,4):
+				if proximity[i] > 0.119:
+					self.flat_surface = False
+			print("Obstacle reached. Turning...")
 
 	def align_perpendicular(self, proximity, position, orientation):
 		# Use the frontal proximity sensor to rotate the robot until its is perpendicular to the wall
 		max_orientation_speed = 0.75
-		flat_surface = True
-		for i in range(1,4):
-			if proximity[i] > 0.119:
-				flat_surface = False
 
-		if flat_surface:
+		if self.flat_surface:
 			angular_vel = self.angular_vel_pid.step(proximity[3] - proximity[1], dt=0.1)
 			module = min(abs(angular_vel), max_orientation_speed)
 			angular_vel *= module / abs(angular_vel)
@@ -75,7 +76,7 @@ class WallController:
 
 		if done:
 			self.ROTATED = True
-			print("Done. Moving away from the wall...")
+			print("Done.")
 
 	def move_max_range(self, proximity, position, orientation):
 		# Move the robot away until the rear proximity sensors reach max range
@@ -106,10 +107,10 @@ class WallController:
 			print(self.velocity)
 			print("{0} --> {1}".format(position.x,self.final_target.x))
 		if done:
-			print("Done. Final position: ({0},{1})".format(position.x,position.y))
+			# print("Done. Final position: ({0},{1})".format(position.x,position.y))
 			self.DONE = True
 
-	def reset(self, proximity, position, orientation):
+	def reset(self):
 		self.WALL_REACHED = False
 		self.PERPENDICULAR = False
 		self.ROTATING = False
@@ -118,9 +119,9 @@ class WallController:
 		self.DONE = False
 
 	def is_obstacle_present(self, proximity):
-		return False if proximity[2] > 0.11 else True
-
-
+		return False if proximity[1] > 0.11 and proximity[2] > 0.11 and proximity[3] > 0.11 else True
+		
+	
 	def run(self, proximity, position, orientation):
 		
 		if not self.WALL_REACHED:
