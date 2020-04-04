@@ -3,7 +3,6 @@ import movement_utils as mv
 from pid import PID
 from geometry_msgs.msg import Twist, Pose, Point
 from math import pi, cos, sin
-from collections import deque
 
 
 class WallController:
@@ -47,12 +46,20 @@ class WallController:
 	def align_perpendicular(self, proximity, position, orientation):
 		# Use the frontal proximity sensor to rotate the robot until its is perpendicular to the wall
 		max_orientation_speed = 0.75
-		angular_vel = self.angular_vel_pid.step(proximity[4] - proximity[0], dt=0.1)
-		module = min(abs(angular_vel), max_orientation_speed)
-		angular_vel *= module / abs(angular_vel)
-		
-		self.velocity.linear.x = 0.
-		self.velocity.angular.z = angular_vel
+		flat_surface = True
+		for i in range(1,4):
+			if proximity[i] > 0.119:
+				flat_surface = False
+
+		if flat_surface:
+			angular_vel = self.angular_vel_pid.step(proximity[3] - proximity[1], dt=0.1)
+			module = min(abs(angular_vel), max_orientation_speed)
+			angular_vel *= module / abs(angular_vel)
+			
+			self.velocity.linear.x = 0.
+			self.velocity.angular.z = angular_vel
+		else:
+			angular_vel = 0.
 
 		if abs(angular_vel) < 0.01:
 			self.PERPENDICULAR=True
@@ -109,6 +116,9 @@ class WallController:
 		self.ROTATED = False
 		self.MAX_RANGE = False
 		self.DONE = False
+
+	def is_obstacle_present(self, proximity):
+		return False if proximity[2] > 0.11 else True
 
 
 	def run(self, proximity, position, orientation):

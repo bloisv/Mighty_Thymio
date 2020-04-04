@@ -8,6 +8,7 @@ from sensor_msgs.msg import Range
 import movement_utils as mv
 from wall_controller import WallController
 from follow_8_controller import Follow8Controller
+from explorer_controller import ExplorerController
 from math import pi
 
 
@@ -16,7 +17,8 @@ from math import pi
 class Mighty_Thymio:
 	def __init__(self, thymio_name):
 		# self.mode = 'FOLLOW8'
-		self.mode = 'AVOID_WALL'
+		# self.mode = 'AVOID_WALL'
+		self.mode = 'EXPLORER'
 		rospy.init_node('Mighty_Thymio', anonymous=True)
 		self.rate = rospy.Rate(10)
 
@@ -89,6 +91,8 @@ class Mighty_Thymio:
 
 		if self.mode == 'FOLLOW8':
 			self.controller = Follow8Controller()
+		elif self.mode == 'EXPLORER':
+			self.controller = ExplorerController()
 		else:
 			self.controller = WallController(0.2)
 		
@@ -96,6 +100,8 @@ class Mighty_Thymio:
 		while not rospy.is_shutdown():
 			if self.mode == 'FOLLOW8':
 				vel = self.controller.run(self.orientation) 
+			elif self.mode == 'EXPLORER':
+				vel = self.controller.run(self.proximity, self.position, self.orientation)
 			else:
 				vel = self.controller.run(self.proximity, self.position, self.orientation)
 			
