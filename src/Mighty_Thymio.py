@@ -13,17 +13,21 @@ from math import pi
 
 
 class Mighty_Thymio:
-    def __init__(self, thymio_name):
+    def __init__(self, ):
         # self.mode = 'FOLLOW8'
         # self.mode = 'AVOID_WALL'
         self.mode = 'EXPLORER'
+        
         rospy.init_node('Mighty_Thymio', anonymous=True)
         self.rate = rospy.Rate(10)
 
-        self.velocity_publisher = rospy.Publisher('/' + thymio_name + '/cmd_vel', Twist, queue_size=10)
-        self.odometry_subscriber = rospy.Subscriber('/' + thymio_name + '/odom', Odometry, self.update_pose)
+        self.thymio_name = rospy.get_param("~name")
+        print("Process for "+self.thymio_name+" has started!")
 
-        prx = '/' + thymio_name + '/proximity/'
+        self.velocity_publisher = rospy.Publisher('/' + self.thymio_name + '/cmd_vel', Twist, queue_size=10)
+        self.odometry_subscriber = rospy.Subscriber('/' + self.thymio_name + '/odom', Odometry, self.update_pose)
+
+        prx = '/' + self.thymio_name + '/proximity/'
         self.proximity_sensors_name = [
             prx + 'left',
             prx + 'center_left',
@@ -105,7 +109,7 @@ class Mighty_Thymio:
 
 if __name__ == '__main__':
     try:
-        Thymio_controller = Mighty_Thymio('thymio10')
+        Thymio_controller = Mighty_Thymio()
         Thymio_controller.run()
     except rospy.ROSInterruptException as e:
         pass
