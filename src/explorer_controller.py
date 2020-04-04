@@ -19,22 +19,10 @@ class ExplorerController:
 		self.OBSTACLE_DETECTED = False
 		self.OBSTACLE_AVOIDED = False
 
-
 		self.velocity = Twist()
 
-		rand_init_dir = random.randint(0,7)
-		self.init_orientation = pi/4 * rand_init_dir
-
-	def explore(self, proximity, position, orientation):
-		self.velocity.angular.z = 0.
-		
-
-		if self.obstacle_controller.is_obstacle_present(proximity):
-			self.EXPLORING = False
-			self.OBSTACLE_DETECTED = True
-
-			self.velocity.linear.x = 0.
-			return 
+		rand_init_dir = random.randint(0, 7)
+		self.init_orientation = pi / 4 * rand_init_dir
 
 		self.velocity.linear.x = 0.13
 
@@ -42,29 +30,36 @@ class ExplorerController:
 		rand_dir = random.randint(0,n)
 		step = (range_max-range_min)/(n)
 		mid_range  = (range_max-range_min)/2.
-		# print(rand_dir)
 		return mv.to_positive_angle(orientation - mid_range + step*rand_dir)
 
+	def explore(self, proximity, position, orientation):
+		self.velocity.angular.z = 0.
 
+		if self.obstacle_controller.is_obstacle_present(proximity):
+			self.EXPLORING = False
+			self.OBSTACLE_DETECTED = True
+
+			self.velocity.linear.x = 0.
+			return
+
+		self.velocity.linear.x = 0.10
 
 	def run(self, proximity, position, orientation):
 
 		if self.INIT:
-			done , vel = self.motion_controller.move(position,orientation,
-				position,target_orientation=self.init_orientation,
-				max_orientation_speed=.75
-			)
+			done, vel = self.motion_controller.move(position, orientation,
+													position, target_orientation=self.init_orientation,
+													max_orientation_speed=.75
+													)
 			self.velocity.linear.x = vel.linear.x
 			self.velocity.angular.z = vel.angular.z
 
 			if done:
-				self.INIT=False
+				self.INIT = False
 				self.EXPLORING = True
-
 
 		if self.EXPLORING:
 			self.explore(proximity, position, orientation)
-
 
 		if self.OBSTACLE_DETECTED:
 			vel = self.obstacle_controller.run(proximity, position, orientation)
@@ -79,11 +74,11 @@ class ExplorerController:
 
 		if self.OBSTACLE_AVOIDED:
 			# Select new direction randomly and start exploring again
-			
-			done , vel = self.motion_controller.move(position,orientation,
-				position,target_orientation=self.new_orientation,
-				max_orientation_speed=.75
-			)
+
+			done, vel = self.motion_controller.move(position, orientation,
+													position, target_orientation=self.new_orientation,
+													max_orientation_speed=.75
+													)
 			self.velocity.linear.x = vel.linear.x
 			self.velocity.angular.z = vel.angular.z
 
