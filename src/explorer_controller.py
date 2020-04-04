@@ -12,13 +12,16 @@ class ExplorerController:
 		self.obstacle_controller = WallController(proximity_threshold=0.06, wall_safety_distance=.2, debug=False)
 		self.motion_controller = mv.ToTargetPController(linear_speed=0.20,orientation_speed = 2.5)
 
-
-		self.EXPLORING = True
+		self.INIT = True
+		self.EXPLORING = False
 		self.OBSTACLE_DETECTED = False
 		self.OBSTACLE_AVOIDED = False
 
 
 		self.velocity = Twist()
+
+		rand_init_dir = random.randint(0,7)
+		self.init_orientation = pi/4 * rand_init_dir
 
 	def explore(self, proximity, position, orientation):
 		self.velocity.angular.z = 0.
@@ -37,10 +40,22 @@ class ExplorerController:
 
 	def run(self, proximity, position, orientation):
 
+		if self.INIT:
+			done , vel = self.motion_controller.move(position,orientation,
+				position,target_orientation=self.init_orientation,
+				max_orientation_speed=.75
+			)
+			self.velocity.linear.x = vel.linear.x
+			self.velocity.angular.z = vel.angular.z
+
+			if done:
+				self.INIT=False
+				self.EXPLORING = True
 
 
 		if self.EXPLORING:
 			self.explore(proximity, position, orientation)
+
 
 		if self.OBSTACLE_DETECTED:
 			vel = self.obstacle_controller.run(proximity, position, orientation)
