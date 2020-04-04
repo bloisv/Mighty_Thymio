@@ -7,101 +7,132 @@ from collections import deque
 
 
 class WallController:
-	def __init__(self, proximity_threshold, debug=False):
+	def __init__(self, proximity_threshold=0.05, wall_safety_distance=2., debug=False):
 		self.proximity_min_range = 0.010
 		self.proximity_max_range = 0.12
+		# Distance between the rear proximity sensors and the reference of the robot
+		self.rear_proximity_offset = 0.03
+		# Extra distance from wall to cover once the proximity rear sensor stop detecting the wall
+		self.distance = wall_safety_distance - self.proximity_max_range - self.rear_proximity_offset
+
+		# --- STATE VARIABLES ---
 		self.WALL_REACHED = False
 		self.PERPENDICULAR = False
 		self.ROTATING = False
 		self.ROTATED = False
-		self.MAX_DIST = False
+		self.MAX_RANGE = False
 		self.DONE = False
 
 		self.proximity_threshold = proximity_threshold
 		self.motion_controller = mv.ToTargetPController(linear_speed=0.20,orientation_speed = 2.5)
 		self.debug = debug
-		self.target_orientation = pi/2.
 
+		self.angular_vel_pid = PID(Kp=20.,Ki= 0.,Kd = 0.)
+		self.velocity = Twist()
 
-		self.theta_pid = PID(Kp=.2,Ki= 0.,Kd = 0.)
-		#self.error_buffer = deque(maxlen=8)
+		
+	def move_closer(self, proximity, position, orientation):
+		# Move ahead until the proximity sensors detect an obstacle,
+		# then get closer than proximity threshold meters
+
+		if proximity[2] > 0.11:
+			self.velocity.linear.x = .15
+		elif proximity[2] > self.proximity_threshold:
+			self.velocity.linear.x = 0.033
+		else:
+			self.velocity.linear.x = 0.
+			self.WALL_REACHED = True
+			print("Wall reached. Turning in place...")
+
+	def align_perpendicular(self, proximity, position, orientation):
+		# Use the frontal proximity sensor to rotate the robot until its is perpendicular to the wall
+		max_orientation_speed = 0.75
+		angular_vel = self.angular_vel_pid.step(proximity[4] - proximity[0], dt=0.1)
+		module = min(abs(angular_vel), max_orientation_speed)
+		angular_vel *= module / abs(angular_vel)
+		
+		self.velocity.linear.x = 0.
+		self.velocity.angular.z = angular_vel
+
+		if abs(angular_vel) < 0.01:
+			self.PERPENDICULAR=True
+			self.target_orientation = (orientation+pi)%(2*pi)
+
+	def turn_180(self, proximity, position, orientation):
+		done , vel = self.motion_controller.move(position,orientation,
+			position,target_orientation=self.target_orientation,
+			max_orientation_speed=.75
+		)
+		self.velocity.linear.x = vel.linear.x
+		self.velocity.angular.z = vel.angular.z
+
+		if done:
+			self.ROTATED = True
+			print("Done. Moving away from the wall...")
+
+	def move_max_range(self, proximity, position, orientation):
+		# Move the robot away until the rear proximity sensors reach max range
+		
+		self.velocity.angular.z = 0.
+
+		if proximity[5] < 0.1199:
+			self.velocity.linear.x = 0.1
+		else:
+			self.velocity.linear.x = 0.
+
+			self.final_target = Point()
+
+			# If self.distance < 0, then the robot is already far enough from the wall
+			self.final_target.y = position.y + sin(orientation) * (self.distance if self.distance > 0 else 0.)
+			self.final_target.x = position.x + cos(orientation) * (self.distance if self.distance > 0 else 0.)
+			self.MAX_RANGE = True
+
+	def move_away(self, proximity, position, orientation):
+		# Move away from obstacle until safety distance is reached
+		done , vel = self.motion_controller.move(position,orientation,
+			self.final_target, max_linear_speed = 0.2
+		)
+		self.velocity.linear.x = vel.linear.x
+		self.velocity.angular.z = vel.angular.z
+
+		if self.debug:
+			print(self.velocity)
+			print("{0} --> {1}".format(position.x,self.final_target.x))
+		if done:
+			print("Done. Final position: ({0},{1})".format(position.x,position.y))
+			self.DONE = True
+
+	def reset(self, proximity, position, orientation):
+		self.WALL_REACHED = False
+		self.PERPENDICULAR = False
+		self.ROTATING = False
+		self.ROTATED = False
+		self.MAX_RANGE = False
+		self.DONE = False
 
 
 	def run(self, proximity, position, orientation):
-		velocity = Twist()
-		velocity.linear.x = 0
-		velocity.linear.y = 0
-		velocity.linear.z = 0
-		velocity.angular.x = 0
-		velocity.angular.y = 0
-		velocity.angular.z = 0.
-
 		
 		if not self.WALL_REACHED:
-			if proximity[2] > 0.11:
-				velocity.linear.x = .15
-			elif proximity[2] > 0.05:
-				velocity.linear.x = 0.033
-			else:
-				velocity.linear.x = 0.
-				self.WALL_REACHED = True
-				print("Wall reached. Turning in place...")
+			self.move_closer(proximity, position, orientation)
 
 		if self.WALL_REACHED and not self.PERPENDICULAR:
-			max_orientation_speed = 0.75
-			angular_z = 20. * (proximity[4] - proximity[0])
-			module = min(abs(angular_z), max_orientation_speed)
-			angular_z *= module / abs(angular_z)
-			velocity.angular.z = angular_z
-
-			print(angular_z)
-			if abs(angular_z) < 0.01:
-				self.PERPENDICULAR=True
-				self.target_orientation = (orientation+pi)%(2*pi)
-
+			self.align_perpendicular(proximity, position, orientation)
 
 		if not self.ROTATED and self.PERPENDICULAR:
-			if self.debug:
-				print("Rear proximity sensors values: lx->{0}---{1}<-rx".format(proximity[5],proximity[6]))
-				print("Orientation: {0}\n".format(orientation))
+			self.turn_180(proximity, position, orientation)
+			
+		if not self.MAX_RANGE and self.ROTATED:
+			self.move_max_range(proximity, position, orientation)
 
-			done , velocity = self.motion_controller.move(position,orientation,
-				position,target_orientation=self.target_orientation,
-				max_orientation_speed=.75
-			)
-
-			if done:
-				self.ROTATED = True
-				print("Done. Moving 2 meters away from the wall...")
-
-		if not self.MAX_DIST and self.ROTATED:
-			if proximity[5] < 0.1199:
-
-				velocity.linear.x = 0.1
-			else:
-				velocity.linear.x = 0.
-				self.final_target = Point()
-				distance = 2. - 0.12 - 0.03
-				self.final_target.y = position.y + sin(orientation) * distance
-				self.final_target.x = position.x + cos(orientation) * distance
-				self.MAX_DIST = True
-
-
-		if not self.DONE and self.MAX_DIST:
-				done , velocity = self.motion_controller.move(position,orientation,
-					self.final_target, max_linear_speed = 0.2
-				)
-				if self.debug:
-					print(velocity)
-					print("{0} --> {1}".format(position.x,self.final_target.x))
-				if done:
-					print("Done. Final position: ({0},{1})".format(position.x,position.y))
-					self.DONE = True
+		if not self.DONE and self.MAX_RANGE:
+			self.move_away(proximity, position, orientation)
 
 		if self.DONE:
-			velocity.linear.x = 0.
+			self.velocity.linear.x = 0.
+			self.velocity.angular.z = 0.
 			
-		return velocity
+		return self.velocity
 
 
 

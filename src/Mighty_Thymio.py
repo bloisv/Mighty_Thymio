@@ -97,7 +97,6 @@ class Mighty_Thymio:
 			if self.mode == 'FOLLOW8':
 				vel = self.controller.run(self.orientation) 
 			else:
-				# print(self.covariance)
 				vel = self.controller.run(self.proximity, self.position, self.orientation)
 			
 			self.velocity_publisher.publish(vel)
