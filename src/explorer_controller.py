@@ -45,7 +45,8 @@ class ExplorerController:
 		self.velocity.linear.x = 0.10
 
 	def run(self, proximity, position, orientation):
-
+		
+		# Rotate according to the initial random orientation
 		if self.INIT:
 			done, vel = self.motion_controller.move(position, orientation,
 													position, target_orientation=self.init_orientation,
@@ -58,9 +59,11 @@ class ExplorerController:
 				self.INIT = False
 				self.EXPLORING = True
 
+		# Move ahead until an obstacle is dettected
 		if self.EXPLORING:
 			self.explore(proximity, position, orientation)
 
+		# Use wall controller logic to turn away from the obstacle, then chose a new random orientation
 		if self.OBSTACLE_DETECTED:
 			vel = self.obstacle_controller.run(proximity, position, orientation)
 			self.velocity.linear.x = vel.linear.x
@@ -72,9 +75,8 @@ class ExplorerController:
 				self.new_orientation = self.new_rand_orientation(orientation=orientation,
 				range_min=0., range_max=pi, n=4)
 
+		# Rotate in the new orientation and restart exploration
 		if self.OBSTACLE_AVOIDED:
-			# Select new direction randomly and start exploring again
-
 			done, vel = self.motion_controller.move(position, orientation,
 													position, target_orientation=self.new_orientation,
 													max_orientation_speed=.75

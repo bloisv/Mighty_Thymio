@@ -10,9 +10,12 @@ class Follow8Controller:
         self.speed = speed
         self.radius = radius
         self.positive_orientation = True
+
         self.started_8 = False
-        self.finishing_8 = False
         self.half_8 = False
+        self.finishing_8 = False
+        
+
         self.epsilon = 0.05
 
         self.debug = True

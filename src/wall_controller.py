@@ -48,6 +48,11 @@ class WallController:
 					self.flat_surface = False
 			print("Obstacle reached. Turning...")
 
+	"""
+	If the obstacle is sufficiently wide the proximity sensor are used to rotate the robot to be orthogonal 
+	to the obstacle, otherwise no alignement is done (i.e. the robots simply turns by 180 deg with respect
+	to the initial direction.
+	"""
 	def align_perpendicular(self, proximity, position, orientation):
 		# Use the frontal proximity sensor to rotate the robot until its is perpendicular to the wall
 		max_orientation_speed = 0.75
