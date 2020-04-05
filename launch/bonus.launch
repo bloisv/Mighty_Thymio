@@ -84,14 +84,17 @@
 	
 	<node pkg="mighty_thymio" name="Mighty_thymio_10" type="Mighty_Thymio.py" output="screen">
 		<param name="name" value="thymio10" />
+        <param name="mode" value="2" />
 	</node>
 
 	<node pkg="mighty_thymio" name="Mighty_thymio_11" type="Mighty_Thymio.py" output="screen">
 		<param name="name" value="thymio11" />
+        <param name="mode" value="2" />
 	</node>
 
 	<node pkg="mighty_thymio" name="Mighty_thymio_12" type="Mighty_Thymio.py" output="screen">
 		<param name="name" value="thymio12" />
+        <param name="mode" value="2" />
 	</node>
 
 

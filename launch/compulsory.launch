@@ -34,6 +34,11 @@
 
   </include>
 
+  <node pkg="mighty_thymio" name="Mighty_thymio_10" type="Mighty_Thymio.py" output="screen">
+        <param name="name" value="thymio10" />
+        <param name="mode" value="1" />
+  </node>
+
 	
 <!--
     MODE:
@@ -41,9 +46,6 @@
         1 -> (task 3) move toward wall, turn and move 2m away
         2 -> (bonus 2) multiple Mighty Thymios exploring the arena
 -->
-	<node pkg="mighty_thymio" name="Mighty_thymio_10" type="Mighty_Thymio.py" output="screen">
-		<param name="name" value="thymio10" />
-        <param name="mode" value="1" />
-	</node>
+	
 
 </launch>

@@ -6,7 +6,7 @@ from math import pi
 
 
 class Follow8Controller:
-    def __init__(self, speed=0.33, radius=0.5, debug=True):
+    def __init__(self, speed=0.15, radius=0.5, debug=True):
         self.speed = speed
         self.radius = radius
         self.positive_orientation = True
