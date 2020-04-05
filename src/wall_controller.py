@@ -35,7 +35,7 @@ class WallController:
 		# then get closer than proximity threshold meters
 
 		if proximity[1] > 0.11 and proximity[2] > 0.11 and proximity[3] > 0.11:
-			self.velocity.linear.x = .15
+			self.velocity.linear.x = .14
 		elif proximity[1] > self.proximity_threshold and proximity[2] > self.proximity_threshold and proximity[3] > self.proximity_threshold:
 			self.velocity.linear.x = 0.033
 		else:

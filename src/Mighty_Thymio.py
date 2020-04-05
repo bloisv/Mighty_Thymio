@@ -99,7 +99,7 @@ class Mighty_Thymio:
         elif self.mode == 'EXPLORER':
             self.controller = ExplorerController()
         else:
-            self.controller = WallController(0.2)
+            self.controller = WallController(0.025)
 
         while not rospy.is_shutdown():
             if self.mode == 'FOLLOW8':
