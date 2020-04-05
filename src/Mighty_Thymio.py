@@ -14,14 +14,20 @@ from math import pi
 
 class Mighty_Thymio:
     def __init__(self, ):
-        # self.mode = 'FOLLOW8'
-        # self.mode = 'AVOID_WALL'
-        self.mode = 'EXPLORER'
-        
         rospy.init_node('Mighty_Thymio', anonymous=True)
         self.rate = rospy.Rate(10)
 
         self.thymio_name = rospy.get_param("~name")
+
+        mode_num = rospy.get_param('~mode')
+        if mode_num == 0:
+        	self.mode = 'FOLLOW8'
+        elif mode_num == 1:
+        	self.mode = 'AVOID_WALL'
+        else:
+        	self.mode = 'EXPLORER'
+    
+
         print("Process for "+self.thymio_name+" has started!")
 
         self.velocity_publisher = rospy.Publisher('/' + self.thymio_name + '/cmd_vel', Twist, queue_size=10)
