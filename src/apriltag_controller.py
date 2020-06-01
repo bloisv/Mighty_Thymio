@@ -1,12 +1,27 @@
+#!/usr/bin/env python
+
 import rospy
 import movement_utils as mv
 from pid import PID
 from geometry_msgs.msg import Twist, Pose, Point
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
+
 from math import pi, cos, sin
+from apriltag_ros.msg import AprilTagDetectionArray
 
 
-class WallController:
-    def __init__(self, proximity_threshold=0.035, wall_safety_distance=2., debug=False):
+class ModeType:
+    FOLLOW_TAG = 1
+    GO_HOME = 2
+
+
+class AprilTagController:
+    def __init__(self, proximity_threshold=0.035, wall_safety_distance=2., mode=ModeType.FOLLOW_TAG, debug=False):
+        rospy.logdebug('Waiting for tag detection')
+        rospy.wait_for_message('/tag_detections', AprilTagDetectionArray)
+        rospy.Subscriber("/tag_detections", AprilTagDetectionArray, self.get_tags)
+        rospy.logdebug("Publishing april odometry on /odom_april")
+
         self.proximity_min_range = 0.010
         self.proximity_max_range = 0.12
         # Distance between the rear proximity sensors and the reference of the robot
@@ -15,6 +30,8 @@ class WallController:
         self.distance = wall_safety_distance - self.proximity_max_range - self.rear_proximity_offset
 
         # --- STATE VARIABLES ---
+        self.TAG_DETECTED = False
+        self.LOST_DETECTION = False
         self.WALL_REACHED = False
         self.PERPENDICULAR = False
         self.ROTATING = False
@@ -23,12 +40,28 @@ class WallController:
         self.DONE = False
         self.flat_surface = False
 
+        self.pose_to_marker = None
+
         self.proximity_threshold = proximity_threshold
         self.motion_controller = mv.ToTargetPController(linear_speed=0.20, orientation_speed=2.5)
         self.debug = debug
+        self.final_target = Pose()
 
         self.angular_vel_pid = PID(Kp=20., Ki=0., Kd=0.)
         self.velocity = Twist()
+
+    def get_tags(self, msg):
+        if len(msg.detections) > 0:
+            tagDetection = msg.detections[0]
+            self.pose_to_marker = tagDetection.pose.pose.pose
+            self.TAG_DETECTED = True
+            self.LOST_DETECTION = False
+            print('Found tag %s %s' % (tagDetection.id[0], self.pose_to_marker))
+        else:
+            if self.TAG_DETECTED:
+                self.LOST_DETECTION = True
+
+            self.TAG_DETECTED = False
 
     def move_closer(self, proximity, position, orientation):
         # Move ahead until the proximity sensors detect an obstacle,
@@ -117,6 +150,21 @@ class WallController:
             # print("Done. Final position: ({0},{1})".format(position.x,position.y))
             self.DONE = True
 
+    def move_closer_to_tag(self, proximity, position, orientation):
+        rospy.logdebug('Position %s and Orientation %s' % (position, orientation))
+        self.velocity.linear.x = 0
+        self.velocity.angular.z = 0
+        rospy.logdebug('Stop robot')
+        self.DONE = True
+        return
+        self.final_target.x = position.x + cos(orientation)
+        self.final_target.y = position.y + sin(orientation)
+
+        done, vel = self.motion_controller.move(position, orientation, self.final_target, max_linear_speed=0.2)
+        print('Move closer to tag')
+        if done:
+            self.DONE = True
+
     def reset(self):
         self.WALL_REACHED = False
         self.PERPENDICULAR = False
@@ -125,12 +173,15 @@ class WallController:
         self.MAX_RANGE = False
         self.DONE = False
 
-    def is_obstacle_present(self, proximity):
+    @staticmethod
+    def is_obstacle_present(proximity):
         return False if proximity[1] > 0.11 and proximity[2] > 0.11 and proximity[3] > 0.11 else True
 
     def run(self, proximity, position, orientation):
 
-        if not self.WALL_REACHED:
+        rospy.logdebug('Orientation %s' % orientation)
+        if not self.WALL_REACHED and not self.TAG_DETECTED:
+            rospy.logdebug('Not Wall reached nor Detected')
             self.move_closer(proximity, position, orientation)
 
         if self.WALL_REACHED and not self.PERPENDICULAR:
@@ -145,8 +196,14 @@ class WallController:
         if not self.DONE and self.MAX_RANGE:
             self.move_away(proximity, position, orientation)
 
+        if self.TAG_DETECTED and not self.LOST_DETECTION:
+            self.move_closer_to_tag(proximity, self.pose_to_marker.position, self.pose_to_marker.orientation)
+
+        if self.LOST_DETECTION:
+            print('Rotate 360 until find other tags, revert orientation if not found any')
+
         if self.DONE:
             self.velocity.linear.x = 0.
             self.velocity.angular.z = 0.
 
-        return self.velocity
+        return self.velocity, True

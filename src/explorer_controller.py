@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import rospy
 import movement_utils as mv
 from wall_controller import WallController
@@ -6,88 +7,88 @@ from geometry_msgs.msg import Twist, Pose, Point
 from math import pi
 import random
 
+
 class ExplorerController:
-	
-	def __init__(self):
-		self.obstacle_controller = WallController(proximity_threshold=0.05,
-		 wall_safety_distance=.15, debug=False)
-		self.motion_controller = mv.ToTargetPController(linear_speed=0.20,orientation_speed = 2.5)
 
-		# ----- STATE VARIABLES -----
-		self.INIT = True
-		self.EXPLORING = False
-		self.OBSTACLE_DETECTED = False
-		self.OBSTACLE_AVOIDED = False
+    def __init__(self):
+        self.obstacle_controller = WallController(proximity_threshold=0.05,
+                                                  wall_safety_distance=.15, debug=False)
+        self.motion_controller = mv.ToTargetPController(linear_speed=0.20, orientation_speed=2.5)
 
-		self.velocity = Twist()
+        # ----- STATE VARIABLES -----
+        self.INIT = True
+        self.EXPLORING = False
+        self.OBSTACLE_DETECTED = False
+        self.OBSTACLE_AVOIDED = False
 
-		rand_init_dir = random.randint(0, 7)
-		self.init_orientation = pi / 4 * rand_init_dir
+        self.velocity = Twist()
 
-		self.velocity.linear.x = 0.13
+        rand_init_dir = random.randint(0, 7)
+        self.init_orientation = pi / 4 * rand_init_dir
 
-	def new_rand_orientation(self, orientation, range_min, range_max, n):
-		rand_dir = random.randint(0,n)
-		step = (range_max-range_min)/(n)
-		mid_range  = (range_max-range_min)/2.
-		return mv.to_positive_angle(orientation - mid_range + step*rand_dir)
+        self.velocity.linear.x = 0.13
 
-	def explore(self, proximity, position, orientation):
-		self.velocity.angular.z = 0.
+    def new_rand_orientation(self, orientation, range_min, range_max, n):
+        rand_dir = random.randint(0, n)
+        step = (range_max - range_min) / n
+        mid_range = (range_max - range_min) / 2.
+        return mv.to_positive_angle(orientation - mid_range + step * rand_dir)
 
-		if self.obstacle_controller.is_obstacle_present(proximity):
-			self.EXPLORING = False
-			self.OBSTACLE_DETECTED = True
+    def explore(self, proximity, position, orientation):
+        self.velocity.angular.z = 0.
 
-			self.velocity.linear.x = 0.
-			return
+        if self.obstacle_controller.is_obstacle_present(proximity):
+            self.EXPLORING = False
+            self.OBSTACLE_DETECTED = True
 
-		self.velocity.linear.x = 0.10
+            self.velocity.linear.x = 0.
+            return
 
-	def run(self, proximity, position, orientation):
-		
-		# Rotate according to the initial random orientation
-		if self.INIT:
-			done, vel = self.motion_controller.move(position, orientation,
-													position, target_orientation=self.init_orientation,
-													max_orientation_speed=.75
-													)
-			self.velocity.linear.x = vel.linear.x
-			self.velocity.angular.z = vel.angular.z
+        self.velocity.linear.x = 0.10
 
-			if done:
-				self.INIT = False
-				self.EXPLORING = True
+    def run(self, proximity, position, orientation):
 
-		# Move ahead until an obstacle is dettected
-		if self.EXPLORING:
-			self.explore(proximity, position, orientation)
+        # Rotate according to the initial random orientation
+        if self.INIT:
+            done, vel = self.motion_controller.move(position, orientation,
+                                                    position, target_orientation=self.init_orientation,
+                                                    max_orientation_speed=.75
+                                                    )
+            self.velocity.linear.x = vel.linear.x
+            self.velocity.angular.z = vel.angular.z
 
-		# Use wall controller logic to turn away from the obstacle, then chose a new random orientation
-		if self.OBSTACLE_DETECTED:
-			vel = self.obstacle_controller.run(proximity, position, orientation)
-			self.velocity.linear.x = vel.linear.x
-			self.velocity.angular.z = vel.angular.z
+            if done:
+                self.INIT = False
+                self.EXPLORING = True
 
-			if self.obstacle_controller.DONE:
-				self.OBSTACLE_AVOIDED = True
-				self.OBSTACLE_DETECTED = False
-				self.new_orientation = self.new_rand_orientation(orientation=orientation,
-				range_min=0., range_max=pi, n=4)
+        # Move ahead until an obstacle is detected
+        if self.EXPLORING:
+            self.explore(proximity, position, orientation)
 
-		# Rotate in the new orientation and restart exploration
-		if self.OBSTACLE_AVOIDED:
-			done, vel = self.motion_controller.move(position, orientation,
-													position, target_orientation=self.new_orientation,
-													max_orientation_speed=.75
-													)
-			self.velocity.linear.x = vel.linear.x
-			self.velocity.angular.z = vel.angular.z
+        # Use wall controller logic to turn away from the obstacle, then chose a new random orientation
+        if self.OBSTACLE_DETECTED:
+            vel = self.obstacle_controller.run(proximity, position, orientation)
+            self.velocity.linear.x = vel.linear.x
+            self.velocity.angular.z = vel.angular.z
 
-			if done:
-				self.obstacle_controller.reset()
-				self.EXPLORING = True
-				self.OBSTACLE_DETECTED = False
-				self.OBSTACLE_AVOIDED = False
+            if self.obstacle_controller.DONE:
+                self.OBSTACLE_AVOIDED = True
+                self.OBSTACLE_DETECTED = False
+                self.new_orientation = self.new_rand_orientation(orientation=orientation,
+                                                                 range_min=0., range_max=pi, n=4)
 
-		return self.velocity
+        # Rotate in the new orientation and restart exploration
+        if self.OBSTACLE_AVOIDED:
+            done, vel = self.motion_controller.move(position, orientation,
+                                                    position, target_orientation=self.new_orientation,
+                                                    max_orientation_speed=.75)
+            self.velocity.linear.x = vel.linear.x
+            self.velocity.angular.z = vel.angular.z
+
+            if done:
+                self.obstacle_controller.reset()
+                self.EXPLORING = True
+                self.OBSTACLE_DETECTED = False
+                self.OBSTACLE_AVOIDED = False
+
+        return self.velocity
